@@ -11,13 +11,13 @@ project_root/
 │       ├── train/             # Training set
 │       │   ├── 0.0/          # Images with fibrosis grade 0.0
 │       │   ├── 0.1/          # Images with fibrosis grade 0.1
-│       │   └── ...           # Other grades (0.2 to 3.4)
+│       │   └── ...           # Other grades (0.2 to 3.5)
 │       └── val/              # Validation set
 │           ├── 0.0/          # Images with fibrosis grade 0.0
 │           ├── 0.1/          # Images with fibrosis grade 0.1
-│           └── ...           # Other grades (0.2 to 3.2)
+│           └── ...           # Other grades (0.2 to 3.5)
 ├── models/                     # Model weights directory
-│   └── SFibAI.pth             # Pre-trained model weights
+│   └── trained_model.pth      # ---model weights---
 ├── runs/                      # Training logs and results
 ├── scripts/                   # Source code
 │   ├── figure_generate/       # Visualization scripts
@@ -29,7 +29,6 @@ project_root/
 │       │   └── transforms.py  # Image transformations
 │       ├── utils/             # Utility functions
 │       │   ├── metrics.py     # Evaluation metrics
-│       │   ├── models.py      # Model architectures
 │       │   └── visualization.py # Training visualization
 │       ├── config.py          # Configuration parameters
 │       ├── train.py           # Training script
@@ -128,7 +127,6 @@ python feature_heatmap.py
 
 ### Model and Utilities
 
-- `models.py`: Model architecture definitions and weight loading
 - `metrics.py`: Implementation of evaluation metrics
 - `visualization.py`: Functions for plotting training progress and results
 

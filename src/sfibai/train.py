@@ -32,7 +32,8 @@ def parse_args():
                                 help='Batch size')
     training_group.add_argument("--num_workers", type=int, default=Config.NUM_WORKERS,
                                 help='Number of worker processes for data loading')
-    training_group.add_argument("--ddp_enabled", type=bool, default=Config.DDP_ENABLED,
+    training_group.add_argument("--ddp_enabled", action="store_true",
+                                default=Config.DDP_ENABLED,
                                 help='Whether to enable distributed training')
     training_group.add_argument("--device_id", type=int, default=Config.DEVICE_ID,
                                 help='GPU device ID')
@@ -126,7 +127,11 @@ def setup_ddp(ddp_enabled=False, device_id=0):
         device = torch.device("cuda", local_rank)
     else:
         local_rank = 0
-        device = torch.device("cuda", device_id)
+        if torch.cuda.is_available():
+            device = torch.device("cuda", device_id)
+        else:
+            print("Warning: CUDA is not available, falling back to CPU")
+            device = torch.device("cpu")
     return local_rank, device
 
 def setup_model(device, args):

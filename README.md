@@ -1,136 +1,212 @@
-# SFibAI: Deep Learning for Precision Grading of Schistosomiasis Liver Fibrosis
+# SFibAI
 
-SFibAI is a deep learning framework for precise grading of liver fibrosis in ultrasound images. This project implements a multi-class classification system that can accurately assess the degree of liver fibrosis from ultrasound images.
+SFibAI is the official code repository for the manuscript **"Deep Learning for Precision Grading of *Schistosoma japonicum*-induced Liver Fibrosis in Ultrasound Images"**.
 
-## Project Structure
+## Features
 
+- **Fine-grained grading** — 36-class ordinal output (0.0–3.5, step 0.1), compatible with standard clinical grades (F0–F3)
+- **Hybrid loss** — Local KL Divergence + MSE + Boundary Penalty, with configurable weights
+- **backbone** — ResNet-50 (default)
+- **Mixed crop augmentation** — optional ROI-crop strategy with YOLO-format annotation support
+- **Mixed-precision & DDP** — built-in AMP and DistributedDataParallel support
+
+## Repository layout
+
+```text
+SFibAI/
+├── README.md
+├── CITATION.cff
+├── environment.yml
+├── requirements.txt
+├── .gitignore
+├── artifacts/
+│   ├── README.md
+│   ├── figures/
+│   ├── sample_results/
+│   └── statistics/
+├── checkpoints/
+│   └── README.md
+├── data/
+│   ├── README.md
+│   └── seg_samples_500/
+│       ├── train/
+│       └── val/
+├── scripts/
+│   ├── figure_generation/
+│   ├── preprocessing/
+│   └── run/
+└── src/
+    ├── baselines/
+    │   └── README.md
+    └── sfibai/
+        ├── config.py
+        ├── train.py
+        ├── eval.py
+        ├── data/
+        │   ├── dataset.py
+        │   └── transforms.py
+        └── utils/
+            ├── __init__.py
+            ├── metrics.py
+            ├── models.py
+            └── visualization.py
 ```
-project_root/
-├── dataset/                    # Dataset directory
-│   └── seg_samples_500/       # 500 labelled image samples
-│       ├── train/             # Training set
-│       │   ├── 0.0/          # Images with fibrosis grade 0.0
-│       │   ├── 0.1/          # Images with fibrosis grade 0.1
-│       │   └── ...           # Other grades (0.2 to 3.5)
-│       └── val/              # Validation set
-│           ├── 0.0/          # Images with fibrosis grade 0.0
-│           ├── 0.1/          # Images with fibrosis grade 0.1
-│           └── ...           # Other grades (0.2 to 3.5)
-├── models/                     # Model weights directory
-│   └── trained_model.pth      # ---model weights---
-├── runs/                      # Training logs and results
-├── scripts/                   # Source code
-│   ├── figure_generate/       # Visualization scripts
-│   │   ├── dataset_size_distri.py    # Dataset distribution analysis
-│   │   └── feature_heatmap.py        # Feature visualization
-│   └── train_eval/            # Training and evaluation scripts
-│       ├── data/              # Data processing modules
-│       │   ├── dataset.py     # Dataset class implementation
-│       │   └── transforms.py  # Image transformations
-│       ├── utils/             # Utility functions
-│       │   ├── metrics.py     # Evaluation metrics
-│       │   └── visualization.py # Training visualization
-│       ├── config.py          # Configuration parameters
-│       ├── train.py           # Training script
-│       ├── eval.py            # Evaluation script
-│       ├── train.sh           # Training shell script
-│       └── eval.sh            # Evaluation shell script
-└── requirements.txt           # Python dependencies
-```
 
-## Environment Setup
+## Environment setup
 
-1. Create a new conda environment:
+Create a clean environment with conda:
 
 ```bash
-conda create -n sfibai python=3.8
+conda env create -f environment.yml
 conda activate sfibai
 ```
 
-2. Install dependencies:
+Or install the main dependencies with pip:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Dataset Preparation
+## Data layout
 
-The dataset consists of 500 labelled ultrasound images of liver fibrosis, organized by fibrosis grade. The dataset is split into training and validation sets:
+The training code expects each dataset root to contain at minimum:
 
-1. Training set (`dataset/seg_samples_500/train/`):
-   - Contains images with fibrosis grades from 0.0 to 3.5
-   - Each grade has its own subdirectory (e.g., 0.0/, 0.1/, etc.)
-   - Images are organized by their fibrosis grade
-
-2. Validation set (`dataset/seg_samples_500/val/`):
-   - Contains images with fibrosis grades from 0.0 to 3.5
-   - Similar structure to the training set
-   - Used for model validation during training
-
-Each image is labeled with its corresponding fibrosis grade, which is used as the target for the classification task.
-
-## Training
-
-1. Configure training parameters in `scripts/train_eval/config.py`:
-
-   - Set dataset paths
-   - Adjust model parameters
-   - Configure training hyperparameters
-2. Start training:
-
-```bash
-cd scripts/train_eval
-bash train.sh
+```text
+<data_root>/
+├── train/
+│   ├── 0.0/            # Grade 0, fibrosis score 0.0
+│   │   ├── img001.jpg
+│   │   └── ...
+│   ├── 0.1/            # Grade 0, fibrosis score 0.1
+│   ├── 0.2/
+│   ├── ...
+│   ├── 1.0/            # Grade 1, fibrosis score 1.0
+│   ├── 1.1/
+│   ├── ...
+│   ├── 2.0/            # Grade 2, fibrosis score 2.0
+│   ├── ...
+│   ├── 3.0/            # Grade 3, fibrosis score 3.0
+│   ├── ...
+│   └── 3.5/            # Grade 3, fibrosis score 3.5
+└── val/
+    ├── 0.0/
+    ├── 0.1/
+    ├── ...
+    └── 3.5/
 ```
 
-Training logs and model checkpoints will be saved in the `runs` directory.
+Optionally, YOLO-format ROI annotations can be provided to enable crop-based augmentation:
 
-## Evaluation
-
-1. Evaluate model performance:
-
-```bash
-cd scripts/train_eval
-bash eval.sh
+```text
+<data_root>/
+├── train/
+│   └── (same structure as above)
+├── val/
+│   └── (same structure as above)
+├── train_label/        # YOLO-format .txt annotation files
+│   ├── img001.txt      # each line: class x_center y_center width height
+│   └── ...
+└── val_label/
+    └── ...
 ```
 
-Evaluation results will be saved in the `eval_results` directory.
+When annotation directories are absent, the dataset loader automatically disables cropping and loads images directly. The bundled sample data (`data/seg_samples_500/`) contains pre-segmented images and does not require annotation files.
 
-## Visualization
+## Included sample data
 
-1. Analyze dataset distribution:
+- `data/seg_samples_500/` — 500 representative pre-segmented ultrasound images organized by fibrosis grade (0.0–3.4), sufficient for a demonstration run of the training and evaluation pipeline.
+- `artifacts/sample_results/` — representative outputs preserved from the analysis workflow.
+
+The bundled sample data does not include ROI annotation files. The training and evaluation scripts default to `--crop_mode none`, which loads images directly without cropping.
+
+The full study dataset and all training artifacts are **not** redistributed in this public repository.
+
+## Preprocessing (optional)
+
+If your raw ultrasound images contain device-UI backgrounds (text overlays, colored borders, thumbnails, etc.), you can use the bundled preprocessing script to extract the ultrasound ROI and generate YOLO-format annotation files:
 
 ```bash
-cd scripts/figure_generate
-python dataset_size_distri.py
+python scripts/preprocessing/extract_roi.py \
+    --input_dir /path/to/raw_images/train \
+    --output_dir /path/to/processed/train \
+    --label_dir /path/to/processed/train_label
 ```
 
-2. Generate feature heatmaps:
+The script uses contour detection (mean-threshold binarisation) to locate the largest connected region in each image. Run `python scripts/preprocessing/extract_roi.py --help` for all available options. This step is **not required** if your images are already pre-segmented — in that case, simply train with `--crop_mode none`.
+
+## Quick start
+
+### Training
 
 ```bash
-cd scripts/figure_generate
-python feature_heatmap.py
+python src/sfibai/train.py \
+  --root_dirs /path/to/data_root \
+  --checkpoint_path checkpoints/SFibAI.pth \
+  --backbone resnet50 \
+  --loss hybrid \
+  --alpha 1.0 --beta 0.02 --gamma 0.02 \
+  --epochs 120 \
+  --bs 32 \
+  --save_root artifacts/runs
 ```
 
-## File Descriptions
+Key arguments:
 
-### Core Training Files
+| Argument | Default | Description |
+|---|---|---|
+| `--backbone` | `resnet50` | Backbone architecture (see table above) |
+| `--loss` | `hybrid` | Loss function: `kl`, `mse`, `boundary`, `kl_mse`, `kl_boundary`, `mse_boundary`, or `hybrid` |
+| `--alpha` | 1.0 | Weight for Local KL Divergence loss |
+| `--beta` | 0.02 | Weight for Expectation MSE loss |
+| `--gamma` | 0.02 | Weight for Boundary Penalty loss |
+| `--crop_mode` | `mixed` | Crop strategy: `none`, `fixed`, `random`, `mixed` |
+| `--scheduler` | `step` | LR scheduler: `step` or `cos` |
+| `--checkpoint_path` | — | Path to pretrained backbone weights |
 
-- `train.py`: Main training script implementing the training loop and model optimization
-- `eval.py`: Evaluation script for model performance assessment
-- `config.py`: Configuration file containing all hyperparameters and settings
+Run `python src/sfibai/train.py --help` for the full list.
 
-### Data Processing
+### Evaluation
 
-- `dataset.py`: Custom dataset class for loading and preprocessing ultrasound images
-- `transforms.py`: Image transformation pipeline for data augmentation
+```bash
+python src/sfibai/eval.py \
+  --model_paths checkpoints/SFibAI.pth \
+  --root_dirs /path/to/data_root \
+  --save_dir artifacts/eval_results
+```
 
-### Model and Utilities
+The evaluation script generates:
+- Per-image prediction CSV
+- 36-class and 4-class (F0–F3) confusion matrices (PDF)
+- Clinical-threshold ROC curves with AUC scores (PDF)
+- Detailed metrics log file
 
-- `metrics.py`: Implementation of evaluation metrics
-- `visualization.py`: Functions for plotting training progress and results
+### Helper scripts
 
-### Visualization Scripts
+```bash
+bash scripts/run/train.sh
+bash scripts/run/eval.sh
+```
 
-- `dataset_size_distri.py`: Analyzes and visualizes dataset distribution
-- `feature_heatmap.py`: Generates feature activation heatmaps for model interpretation
+## Figure-generation scripts
+
+Utilities under `scripts/figure_generation/`:
+- `dataset_size_distri.py` — dataset distribution summaries
+- `feature_heatmap.py` — Grad-CAM-style feature visualisation
+
+Outputs are saved to `artifacts/figures/` and `artifacts/statistics/`.
+
+## Reproduced baselines
+
+This repository also includes independent re-implementations of two comparison baselines described in the manuscript (Guo et al. radiomics + SVM, Lee et al. VGG-based). The original source code was not publicly accessible when this study was conducted.
+
+For baseline documentation, entry points and usage instructions, see **[`src/baselines/README.md`](src/baselines/README.md)**.
+
+## Additional documentation
+
+- [`data/README.md`](data/README.md) — data availability and expected layout
+- [`artifacts/README.md`](artifacts/README.md) — sample outputs and generated artifacts
+- [`checkpoints/README.md`](checkpoints/README.md) — checkpoint placement and expectations
+
+## Citation
+
+If you use this repository, please cite the associated manuscript and software metadata in [`CITATION.cff`](CITATION.cff).

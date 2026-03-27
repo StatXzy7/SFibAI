@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 
 def plot_confusion_matrix(y_total, y_hat_total, save_folder, epoch):
-    labels = [str(round(x / 10, 1)) for x in range(37)]
+    labels = [str(round(x / 10, 1)) for x in range(36)]
     cm = confusion_matrix(y_total, y_hat_total, normalize='true', labels=labels)
 
     plt.figure(figsize=(15, 12))

@@ -1,0 +1,35 @@
+# Ignore generated training and evaluation outputs
+artifacts/runs/
+artifacts/eval_results/
+artifacts/feature_cache/
+
+# Ignore local checkpoints by default, but keep the directory and docs
+checkpoints/*
+!checkpoints/README.md
+
+# Keep checked-in public sample assets
+!artifacts/sample_results/
+!artifacts/sample_results/**
+!data/seg_samples_500/
+!data/seg_samples_500/**
+
+# Python cache and build files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+.build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

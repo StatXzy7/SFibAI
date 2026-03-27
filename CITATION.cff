@@ -1,0 +1,27 @@
+name: SFibAI
+title: "SFibAI: Deep Learning for Precision Grading of Schistosoma japonicum-induced Liver Fibrosis in Ultrasound Images"
+version: 2.0.0
+message: "If you use this repository, please cite the associated manuscript and this software record."
+type: software
+authors:
+  - family-names: Xu
+    given-names: Ziyang
+  - family-names: Zhang
+    given-names: Jianfeng
+  - family-names: Wu
+    given-names: Tingting
+  - family-names: Hua
+    given-names: Haiyong
+  - family-names: Yang
+    given-names: Kun
+  - family-names: Zeng
+    given-names: Tieyong
+abstract: >-
+  Official code repository for SFibAI: Deep Learning for Precision Grading of Schistosoma Japonicum-induced Liver Fibrosis in Ultrasound Images
+keywords:
+  - liver fibrosis
+  - schistosomiasis
+  - ultrasound
+  - deep learning
+  - radiomics
+  - reproducibility

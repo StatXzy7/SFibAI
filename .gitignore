@@ -33,3 +33,12 @@ env/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local-only working directories not part of the public repository.
+# Leading slash anchors each rule to the repo root so the tracked
+# siblings (data/, scripts/figure_generation/, scripts/run/, artifacts/)
+# are never matched.
+/dataset/
+/results/
+/scripts/figure_generate/
+/scripts/train_eval/

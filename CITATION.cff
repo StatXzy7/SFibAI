@@ -1,6 +1,9 @@
+cff-version: 1.2.0
 name: SFibAI
 title: "SFibAI: Deep Learning for Precision Grading of Schistosoma japonicum-induced Liver Fibrosis in Ultrasound Images"
-version: 2.0.0
+version: 2.0.0-ncomms
+license: Apache-2.0
+repository-code: "https://github.com/StatXzy7/SFibAI"
 message: "If you use this repository, please cite the associated manuscript and this software record."
 type: software
 authors:

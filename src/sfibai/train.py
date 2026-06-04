@@ -89,13 +89,6 @@ def parse_args():
                            help='MSE loss weight, loss converges to ~1.45, 0.06/1.45=0.0414')
     loss_group.add_argument("--gamma", type=float, default=0.02,
                            help='Boundary penalty weight, loss converges to ~0.94, 0.06/0.94=0.0638')
-    loss_group.add_argument("--std", type=float, default=1,
-                           help='Standard deviation for soft label generation')
-    loss_group.add_argument("--shape_param", type=float, default=1,
-                           help='Distribution shape parameter')
-    loss_group.add_argument("--scale_param", type=float, default=1,
-                           help='Distribution scale parameter')
-    
     # Save related parameters
     save_group = parser.add_argument_group('Save Parameters')
     save_group.add_argument("--save_root", type=str, default=Config.SAVE_ROOT,
@@ -222,6 +215,11 @@ def calculate_loss(y_hat, y, loss_type, device, args):
 
     # Boundary penalty loss
     def get_boundary_loss():
+        # Training-time regularizer: penalize predictions that fall in a
+        # different integer bin (on the 0.1-step index scale) from the label.
+        # This is a smoothness term during optimization; the clinical 4-grade
+        # boundaries (0.5 / 1.5 / 2.5) used for reporting are applied at
+        # evaluation time, not here.
         y_pred = torch.sum(y_hat.softmax(-1) * torch.arange(36).to(device), dim=1)
         y_pred_floor = torch.floor(y_pred)
         y_floor = torch.floor(y.float())
@@ -383,10 +381,7 @@ def main():
         model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
         
     # Setup optimizer and scheduler
-    optimizer = torch.optim.AdamW([
-        {'params': model.parameters()},
-        {'params': [nn.Parameter(torch.tensor([1.0, 3.0], device=device))], 'lr': 1e-3, 'name': 'loss_weights'}
-    ], lr=args.lr0)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr0)
     scheduler = setup_scheduler(optimizer, args)
     
     train(

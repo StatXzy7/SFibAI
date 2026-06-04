@@ -17,7 +17,3 @@ If ImageNet-pretrained VGG-16 weights are used for the reproduced Lee baseline, 
 ```text
 checkpoints/vgg16-397923af.pth
 ```
-
-## Public repository note
-
-Large binary weights are not required to be committed to the public repository. This directory is kept so that command examples and relative paths remain consistent.

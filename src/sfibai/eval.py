@@ -16,6 +16,13 @@ from config import Config
 from data.dataset import SchistosomiasisDataset
 from data.transforms import ImageTransforms
 from utils.models import create_model
+from utils.scoring import (
+    class_score_values,
+    clinical_grade_from_scores,
+    expected_index_from_logits,
+    expected_score_from_logits,
+    label_indices_to_scores,
+)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluation Script")
@@ -37,6 +44,7 @@ def evaluate_model(model, data_loader, device, save_dir, model_name="model", log
     
     # Initialize results storage
     total_preds = []
+    total_pred_scores = []
     total_labels = []
     total_probs = []  # For AUC computation
 
@@ -49,38 +57,43 @@ def evaluate_model(model, data_loader, device, save_dir, model_name="model", log
             # Model output
             logits = model(images)
             probs = torch.softmax(logits, dim=1)
-            preds = torch.sum(probs * torch.arange(36, device=device), dim=1)
-            preds = torch.round(preds).long()
+            pred_scores = expected_score_from_logits(logits)
+            preds = torch.round(expected_index_from_logits(logits)).long().clamp(0, 35)
 
             # Store results
             total_preds.append(preds.cpu())
+            total_pred_scores.append(pred_scores.cpu())
             total_labels.append(labels.cpu())
             total_probs.append(probs.cpu())
 
     # Concatenate all results
     all_preds = torch.cat(total_preds, dim=0)
+    all_pred_scores = torch.cat(total_pred_scores, dim=0)
     all_labels = torch.cat(total_labels, dim=0)
+    all_label_scores = label_indices_to_scores(all_labels)
     all_probs = torch.cat(total_probs, dim=0)
 
     # Save results to CSV
     results_df = pd.DataFrame({
-        'Predicted Value': all_preds.numpy(),
-        'True Value': all_labels.numpy()
+        'Predicted Score': all_pred_scores.numpy(),
+        'True Score': all_label_scores.numpy(),
+        'Predicted Class Index': all_preds.numpy(),
+        'True Class Index': all_labels.numpy()
     })
     output_file = os.path.join(save_dir, f"{model_name}_results.csv")
     results_df.to_csv(output_file, index=False)
 
     # Calculate Accuracy metrics
     strict_acc = (all_preds == all_labels).sum().item() / all_labels.shape[0]
-    coarse3_acc = (torch.abs(all_preds - all_labels) <= 3).sum().item() / all_labels.shape[0]
-    coarse5_acc = (torch.abs(all_preds - all_labels) <= 5).sum().item() / all_labels.shape[0]
+    coarse3_acc = (torch.abs(all_pred_scores - all_label_scores) <= 0.3).sum().item() / all_labels.shape[0]
+    coarse5_acc = (torch.abs(all_pred_scores - all_label_scores) <= 0.5).sum().item() / all_labels.shape[0]
     
     # Calculate MAE (Mean Absolute Error)
-    mae = torch.abs(all_preds.float() - all_labels.float()).mean().item() / 10.0  # Divide by 10 to convert back to actual fibrosis degree
+    mae = torch.abs(all_pred_scores - all_label_scores).mean().item()
 
     # Boundary accuracy
-    label_boundary = all_labels // 10
-    pred_boundary = all_preds // 10
+    label_boundary = clinical_grade_from_scores(all_label_scores)
+    pred_boundary = clinical_grade_from_scores(all_pred_scores)
     boundary_acc = (label_boundary == pred_boundary).sum().item() / all_labels.shape[0]
 
     with open(log_file, 'a') as f:
@@ -102,8 +115,8 @@ def evaluate_model(model, data_loader, device, save_dir, model_name="model", log
                          os.path.join(save_dir, f"confusion_matrix_36_{model_name}.pdf"))
 
     # 4-class confusion matrix (proportions)
-    boundary_labels = all_labels // 10  # Map 0-35 to 0-3
-    boundary_preds = all_preds // 10
+    boundary_labels = clinical_grade_from_scores(all_label_scores)
+    boundary_preds = clinical_grade_from_scores(all_pred_scores)
     cm_4 = confusion_matrix(boundary_labels.numpy(), boundary_preds.numpy(), 
                            labels=[0, 1, 2, 3], normalize='true')
     plot_confusion_matrix(cm_4, ['F0', 'F1', 'F2', 'F3'], 
@@ -121,8 +134,8 @@ def evaluate_model(model, data_loader, device, save_dir, model_name="model", log
 
     # Calculate 4-class prediction probabilities
     boundary_probs = torch.zeros((all_probs.shape[0], 4))  # Store probabilities for 4 grades
-    for i in range(36):
-        grade_idx = i // 10  # Map 0-35 to 0-3
+    class_grades = clinical_grade_from_scores(class_score_values(36)).long()
+    for i, grade_idx in enumerate(class_grades.tolist()):
         boundary_probs[:, grade_idx] += all_probs[:, i]
 
     # Calculate ROC-AUC for three clinically significant classification thresholds

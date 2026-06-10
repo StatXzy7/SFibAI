@@ -5,9 +5,9 @@ SFibAI is the official code repository for the manuscript **"Deep Learning for P
 ## Features
 
 - **Fine-grained grading** — 36-class ordinal output (0.0–3.5, step 0.1), compatible with standard clinical grades (F0–F3)
-- **Hybrid loss** — Local KL Divergence + MSE + Boundary Penalty, with configurable weights
+- **Hybrid loss** — Local KL Divergence + clinical-score MSE + clinical boundary penalty, with configurable weights
 - **backbone** — ResNet-50 (default)
-- **Mixed crop augmentation** — optional ROI-crop strategy with YOLO-format annotation support
+- **Training augmentation** — gamma correction, horizontal flip, HSV saturation/value jitter, RGB contrast/brightness, Gaussian noise, and ROI-based 3--10 random crops when annotations are available
 - **Mixed-precision & DDP** — built-in AMP and DistributedDataParallel support
 
 ## Repository layout
@@ -117,7 +117,7 @@ When annotation directories are absent, the dataset loader automatically disable
 - `data/seg_samples_500/` — 500 representative pre-segmented ultrasound images organized by fibrosis grade (0.0–3.4), sufficient for a demonstration run of the training and evaluation pipeline.
 - `artifacts/sample_results/` — representative outputs preserved from the analysis workflow.
 
-The bundled sample data does not include ROI annotation files. The training and evaluation scripts default to `--crop_mode none`, which loads images directly without cropping.
+The bundled sample data does not include ROI annotation files. `train.py` defaults to ROI-based random cropping for full annotated datasets, but cropping is automatically disabled when annotation directories are absent. The bundled run scripts use `--crop_mode none` for the sample data.
 
 The full study dataset and all training artifacts are **not** redistributed in this public repository.
 
@@ -159,7 +159,7 @@ Key arguments:
 | `--alpha` | 1.0 | Weight for Local KL Divergence loss |
 | `--beta` | 0.02 | Weight for Expectation MSE loss |
 | `--gamma` | 0.02 | Weight for Boundary Penalty loss |
-| `--crop_mode` | `mixed` | Crop strategy: `none`, `fixed`, `random`, `mixed` |
+| `--crop_mode` | `random` | Training crop strategy: `none`, `fixed`, `random`, `mixed`; annotated training images are expanded into 3--10 crops |
 | `--scheduler` | `step` | LR scheduler: `step` or `cos` |
 | `--checkpoint_path` | — | Path to pretrained backbone weights |
 

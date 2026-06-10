@@ -16,6 +16,12 @@ from config import Config
 from data.dataset import SchistosomiasisDataset
 from data.transforms import ImageTransforms
 from utils.metrics import validate, generate_soft_labels
+from utils.scoring import (
+    clinical_grade_from_scores,
+    expected_index_from_logits,
+    expected_score_from_logits,
+    label_indices_to_scores,
+)
 from utils.visualization import plot_training_progress
 from utils.models import create_model
 
@@ -105,9 +111,9 @@ def parse_args():
     parser.add_argument(
         "--crop_mode",
         type=str,
-        default="mixed",
+        default="random",
         choices=['none', 'fixed', 'random', 'mixed'],
-        help="Crop mode: none-no cropping, fixed-fixed cropping, random-random cropping, mixed-mixed cropping (default)"
+        help="Training crop mode: none, fixed, random, or mixed fixed/random crops (default: random)"
     )
     
     return parser.parse_args()
@@ -210,21 +216,18 @@ def calculate_loss(y_hat, y, loss_type, device, args):
 
     # Mean Squared Error (MSE) loss
     def get_mse_loss():
-        y_pred = torch.sum(y_hat.softmax(-1) * torch.arange(36).to(device), dim=1)
-        return nn.MSELoss()(y_pred.float(), y.float())
+        y_pred_score = expected_score_from_logits(y_hat)
+        y_score = label_indices_to_scores(y)
+        return nn.MSELoss()(y_pred_score.float(), y_score.float())
 
     # Boundary penalty loss
     def get_boundary_loss():
-        # Training-time regularizer: penalize predictions that fall in a
-        # different integer bin (on the 0.1-step index scale) from the label.
-        # This is a smoothness term during optimization; the clinical 4-grade
-        # boundaries (0.5 / 1.5 / 2.5) used for reporting are applied at
-        # evaluation time, not here.
-        y_pred = torch.sum(y_hat.softmax(-1) * torch.arange(36).to(device), dim=1)
-        y_pred_floor = torch.floor(y_pred)
-        y_floor = torch.floor(y.float())
-        boundary_mask = (y_pred_floor != y_floor)
-        return (torch.abs(y_pred - y.float()) * boundary_mask.float()).mean()
+        y_pred_score = expected_score_from_logits(y_hat)
+        y_score = label_indices_to_scores(y)
+        pred_grade = clinical_grade_from_scores(y_pred_score)
+        target_grade = clinical_grade_from_scores(y_score)
+        boundary_mask = pred_grade != target_grade
+        return (torch.abs(y_pred_score - y_score) * boundary_mask.float()).mean()
 
     # Single loss functions
     if loss_type == 'kl' or loss_type == 'kl_p':  # Default using local KL
@@ -280,11 +283,11 @@ def train_epoch(model, train_loader, optimizer, scaler, device, local_rank, args
         
         if local_rank == 0 and (i+1) % args.save_interval == 0:
             batch_size = x.size(0)
-            y_hat = y_hat.softmax(-1)
-            y_hat = torch.sum(y_hat*torch.arange(36).to(device), dim=1)
-            y_hat = y_hat.long()
-            correct = (y_hat == y).sum().item()
-            err = torch.abs(y_hat-y).sum().item()
+            y_pred_index = torch.round(expected_index_from_logits(y_hat)).long()
+            y_pred_score = expected_score_from_logits(y_hat)
+            y_score = label_indices_to_scores(y)
+            correct = (y_pred_index == y).sum().item()
+            err = torch.abs(y_pred_score - y_score).sum().item()
             print(f'batch: {i+1}, loss: {loss.item():.3f}, '
                   f'accuracy: {correct/batch_size:.3f}, '
                   f'err: {err/batch_size:.3f}')
@@ -365,7 +368,7 @@ def main():
         args.root_dirs,
         mode='val', 
         transform=val_transforms,
-        crop_mode=args.crop_mode
+        crop_mode='none'
     )
     
     train_loader, val_loader = setup_dataloaders(

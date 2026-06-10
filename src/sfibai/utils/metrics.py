@@ -4,6 +4,12 @@ import scipy.stats
 from torch.cuda.amp import autocast
 from tqdm import tqdm
 from .visualization import plot_confusion_matrix
+from .scoring import (
+    clinical_grade_from_scores,
+    expected_index_from_logits,
+    expected_score_from_logits,
+    label_indices_to_scores,
+)
 
 def generate_soft_labels(true_labels, num_classes=36, std_dev=0.8, device='cuda'):
     soft_labels = torch.zeros(
@@ -28,13 +34,13 @@ def validate(model, test_loader, device, save_folder='.', save_mat=True, epoch=0
     correct_coarse1 = 0
     correct_coarse2 = 0
     total = 0
-    corrects = {0: 0, 1: 0, 2: 0}
-    totals = {0: 0, 1: 0, 2: 0}
-    pred_total = {0: 0, 1: 0, 2: 0}
+    corrects = {0: 0, 1: 0, 2: 0, 3: 0}
+    totals = {0: 0, 1: 0, 2: 0, 3: 0}
+    pred_total = {0: 0, 1: 0, 2: 0, 3: 0}
     y_total = None
     y_hat_total = None
-    thr1 = 3
-    thr2 = 5
+    thr1 = 0.3
+    thr2 = 0.5
     err = 0
     
     with torch.no_grad():
@@ -44,9 +50,11 @@ def validate(model, test_loader, device, save_folder='.', save_mat=True, epoch=0
                 y = y.to(device)
                 y_hat = model(x)
 
-            y_hat = y_hat.softmax(-1)
-            y_hat = torch.sum(y_hat*torch.arange(36).to(device), dim=1)
-            y_hat = torch.round(y_hat).long()
+            y_score = label_indices_to_scores(y)
+            y_hat_score = expected_score_from_logits(y_hat)
+            y_hat = torch.round(expected_index_from_logits(y_hat)).long().clamp(0, 35)
+            y_grade = clinical_grade_from_scores(y_score)
+            y_hat_grade = clinical_grade_from_scores(y_hat_score)
 
             correct_strict += (y_hat == y).sum().item()
             
@@ -57,32 +65,25 @@ def validate(model, test_loader, device, save_folder='.', save_mat=True, epoch=0
                 y_total = torch.cat((y_total, y.detach().cpu()))
                 y_hat_total = torch.cat((y_hat_total, y_hat.detach().cpu()))
 
-            corrects[0] += ((y_hat <= 15) & (y <= 15)).sum().item()
-            corrects[1] += ((y_hat > 15) & (y_hat <= 25) & (y > 15) & (y <= 25)).sum().item()
-            corrects[2] += ((y_hat > 25) & (y_hat <= 35) & (y > 25) & (y <= 35)).sum().item()
-            
-            totals[0] += (y <= 15).sum().item()
-            totals[1] += ((y > 15) & (y <= 25)).sum().item()
-            totals[2] += ((y > 25) & (y <= 35)).sum().item()
-            
-            pred_total[0] += (y_hat <= 15).sum().item()
-            pred_total[1] += ((y_hat > 15) & (y_hat <= 25)).sum().item()
-            pred_total[2] += ((y_hat > 25) & (y_hat <= 35)).sum().item()
-            
-            correct_coarse1 += (torch.abs(y-y_hat) <= thr1).sum().item()
-            correct_coarse2 += (torch.abs(y-y_hat) <= thr2).sum().item()
-            total += y_hat.shape[0]
-            err += torch.abs(y-y_hat).sum().item()
+            for grade in range(4):
+                corrects[grade] += ((y_hat_grade == grade) & (y_grade == grade)).sum().item()
+                totals[grade] += (y_grade == grade).sum().item()
+                pred_total[grade] += (y_hat_grade == grade).sum().item()
 
-    print(f'accuracy_strict: {correct_strict / total:.3f}, 0.3 accuracy: {correct_coarse1 / total:.3f}, 0.5 accuracy: {correct_coarse2 / total:.3f}, err: {err/total:.3f}')
+            correct_coarse1 += (torch.abs(y_score - y_hat_score) <= thr1).sum().item()
+            correct_coarse2 += (torch.abs(y_score - y_hat_score) <= thr2).sum().item()
+            total += y_hat.shape[0]
+            err += torch.abs(y_score - y_hat_score).sum().item()
+
+    print(f'accuracy_strict: {correct_strict / total:.3f}, 0.3 accuracy: {correct_coarse1 / total:.3f}, 0.5 accuracy: {correct_coarse2 / total:.3f}, mae: {err/total:.3f}')
     
     print('N:', end=' ')
-    for i in range(3):
+    for i in range(4):
         print(f'{totals[i]}', end=',')
     print()
     
     print('R:', end=' ')
-    for i in range(3):
+    for i in range(4):
         if totals[i] == 0:
             print('nan', end=',')
         else:
@@ -90,7 +91,7 @@ def validate(model, test_loader, device, save_folder='.', save_mat=True, epoch=0
     print()
     
     print('P:', end=' ')
-    for i in range(3):
+    for i in range(4):
         if pred_total[i] == 0:
             print('nan', end=',')
         else:

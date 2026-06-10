@@ -15,4 +15,6 @@ python "${REPO_ROOT}/src/sfibai/eval.py" \
   --batch_size 8 \
   --num_workers 8 \
   --mode val \
-  --crop_mode none
+  --crop_mode none \
+  --bootstrap 2000 \
+  --seed 42

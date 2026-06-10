@@ -17,11 +17,13 @@ class Config:
     EPOCHS = 120
     LEARNING_RATE = 1e-4
     MIN_LEARNING_RATE = 1e-6
-    T_MAX = 15
+    SCHEDULER_STEP_SIZE = 15
+    T_MAX = SCHEDULER_STEP_SIZE
     SCHEDULER = 'step'
 
     # Model configuration
-    CHECKPOINT_PATH = str(REPO_ROOT / 'checkpoints' / 'SFibAI.pth')
+    INIT_CHECKPOINT_PATH = None
+    CHECKPOINT_PATH = INIT_CHECKPOINT_PATH
 
     # Other configurations
     DEVICE_ID = 0

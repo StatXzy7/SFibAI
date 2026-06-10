@@ -82,7 +82,7 @@ def load_resnet50_model(checkpoint_path, num_classes=36, device='cuda'):
     return model
 
 
-class MultiGradCAM:
+class MultiGradCAMPP:
     def __init__(self, model, target_layers):
         self.model = model
         self.target_layers = target_layers
@@ -117,20 +117,24 @@ class MultiGradCAM:
 
         cams = {}
         for layer_name in self.target_layers:
-            gradients = self.gradients[layer_name].cpu().data.numpy()
-            activations = self.activations[layer_name].cpu().data.numpy()
-            weights = np.mean(gradients, axis=(2, 3))[0, :]
-            cam = np.zeros(activations.shape[2:], dtype=np.float32)
+            gradients = self.gradients[layer_name].detach()
+            activations = self.activations[layer_name].detach()
+            grad_2 = gradients.pow(2)
+            grad_3 = gradients.pow(3)
+            spatial_sum = torch.sum(activations * grad_3, dim=(2, 3), keepdim=True)
+            alpha = grad_2 / (2.0 * grad_2 + spatial_sum + 1e-8)
+            weights = torch.sum(alpha * torch.relu(gradients), dim=(2, 3), keepdim=True)
+            cam = torch.sum(weights * activations, dim=1)[0]
 
-            for idx, weight in enumerate(weights):
-                cam += weight * activations[0, idx, :, :]
-
-            cam = np.maximum(cam, 0)
-            cam -= np.min(cam)
-            cam /= np.max(cam) + 1e-8
-            cams[layer_name] = cam
+            cam = torch.relu(cam)
+            cam = cam - cam.min()
+            cam = cam / (cam.max() + 1e-8)
+            cams[layer_name] = cam.cpu().numpy().astype(np.float32)
 
         return cams
+
+
+MultiGradCAM = MultiGradCAMPP
 
 
 def overlay_heatmap_on_image(heatmap, image_rgb, alpha=0.5, colormap=cv2.COLORMAP_JET):
@@ -180,9 +184,9 @@ class ImageTransforms:
 
 
 def visualize_feature_maps(dataset, model_paths, device='cuda', target_layers=None, num_classes=36, save_dir='./vis_results'):
-    """Generate Grad-CAM visualizations for all supplied checkpoints."""
+    """Generate Grad-CAM++ visualizations for all supplied checkpoints."""
     if target_layers is None:
-        target_layers = ['layer1', 'layer2', 'layer3', 'layer4']
+        target_layers = ['layer1']
 
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -190,7 +194,7 @@ def visualize_feature_maps(dataset, model_paths, device='cuda', target_layers=No
     models_and_gradcams = []
     for ckpt_path in model_paths:
         model_full = load_resnet50_model(ckpt_path, num_classes=num_classes, device=device)
-        grad_cam = MultiGradCAM(model_full, target_layers=target_layers)
+        grad_cam = MultiGradCAMPP(model_full, target_layers=target_layers)
         models_and_gradcams.append((ckpt_path, model_full, grad_cam))
 
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
@@ -223,12 +227,14 @@ def visualize_feature_maps(dataset, model_paths, device='cuda', target_layers=No
 
 def parse_args():
     repo_root = Path(__file__).resolve().parents[2]
-    parser = argparse.ArgumentParser(description='Generate Grad-CAM visualizations for SFibAI checkpoints.')
+    parser = argparse.ArgumentParser(description='Generate Grad-CAM++ visualizations for SFibAI checkpoints.')
     parser.add_argument('--image_dir', type=str, default=str(repo_root / 'data' / 'seg_samples_500' / 'val' / '0.0'))
     parser.add_argument('--model_paths', nargs='+', default=[str(repo_root / 'checkpoints' / 'SFibAI.pth')])
     parser.add_argument('--save_dir', type=str, default=str(repo_root / 'artifacts' / 'figures' / 'heatmaps'))
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
     parser.add_argument('--shape', nargs=2, type=int, default=[512, 512])
+    parser.add_argument('--target_layers', nargs='+', default=['layer1'],
+                        help='Target ResNet layers for Grad-CAM++; default is layer1 (Stage 1).')
     parser.add_argument('--debug', action='store_true')
     return parser.parse_args()
 
@@ -241,7 +247,7 @@ def main():
         dataset=dataset,
         model_paths=args.model_paths,
         device=args.device,
-        target_layers=['layer1', 'layer2', 'layer3', 'layer4'],
+        target_layers=args.target_layers,
         save_dir=args.save_dir,
     )
 

@@ -15,6 +15,8 @@ SFibAI is the official code repository for the manuscript **"Deep Learning for P
 ```text
 SFibAI/
 ├── README.md
+├── VERSION
+├── ARCHIVE_MANIFEST.md
 ├── CITATION.cff
 ├── environment.yml
 ├── requirements.txt
@@ -136,16 +138,19 @@ The script uses contour detection (mean-threshold binarisation) to locate the la
 
 ## Quick start
 
+The manuscript checkpoint is not included in this repository. Training can start without an initialization checkpoint; evaluation requires a user-supplied trained checkpoint.
+
 ### Training
 
 ```bash
 python src/sfibai/train.py \
   --root_dirs /path/to/data_root \
-  --checkpoint_path checkpoints/SFibAI.pth \
   --backbone resnet50 \
   --loss hybrid \
   --alpha 1.0 --beta 0.02 --gamma 0.02 \
   --epochs 120 \
+  --scheduler step \
+  --scheduler_step_size 15 \
   --bs 32 \
   --save_root artifacts/runs
 ```
@@ -161,7 +166,8 @@ Key arguments:
 | `--gamma` | 0.02 | Weight for Boundary Penalty loss |
 | `--crop_mode` | `random` | Training crop strategy: `none`, `fixed`, `random`, `mixed`; annotated training images are expanded into 3--10 crops |
 | `--scheduler` | `step` | LR scheduler: `step` or `cos` |
-| `--checkpoint_path` | — | Path to pretrained backbone weights |
+| `--scheduler_step_size` | `15` | StepLR step size; also used as `T_max` for cosine scheduling |
+| `--init_checkpoint` | — | Optional checkpoint used to initialize backbone weights before training |
 
 Run `python src/sfibai/train.py --help` for the full list.
 
@@ -177,7 +183,8 @@ python src/sfibai/eval.py \
 The evaluation script generates:
 - Per-image prediction CSV
 - 36-class and 4-class (F0–F3) confusion matrices (PDF)
-- Clinical-threshold ROC curves with AUC scores (PDF)
+- Clinical ROC curves for nine binary/composite scenarios (PDF)
+- Nine-scenario metrics CSV with AUC, 95% bootstrap CI, sensitivity, specificity, accuracy, precision, F1, kappa and MCC
 - Detailed metrics log file
 
 ### Helper scripts
@@ -191,9 +198,29 @@ bash scripts/run/eval.sh
 
 Utilities under `scripts/figure_generation/`:
 - `dataset_size_distri.py` — dataset distribution summaries
-- `feature_heatmap.py` — Grad-CAM-style feature visualisation
+- `feature_heatmap.py` — Grad-CAM++ feature visualisation, defaulting to Stage 1 (`layer1`)
+- `extract_features.py` — Stage 4/`avgpool` feature export for embedding visualisation
+- `plot_tsne.py` — t-SNE figure generation from exported features
 
 Outputs are saved to `artifacts/figures/` and `artifacts/statistics/`.
+
+Example t-SNE reproduction workflow:
+
+```bash
+python scripts/figure_generation/extract_features.py \
+  --model_path checkpoints/SFibAI.pth \
+  --root_dirs /path/to/data_root \
+  --mode val \
+  --save_path artifacts/feature_cache/sfibai_features.npz
+
+python scripts/figure_generation/plot_tsne.py \
+  --features artifacts/feature_cache/sfibai_features.npz \
+  --perplexity 30 \
+  --learning_rate auto \
+  --max_iter 1000 \
+  --init pca \
+  --random_state 42
+```
 
 ## Reproduced baselines
 
@@ -206,6 +233,7 @@ For baseline documentation, entry points and usage instructions, see **[`src/bas
 - [`data/README.md`](data/README.md) — data availability and expected layout
 - [`artifacts/README.md`](artifacts/README.md) — sample outputs and generated artifacts
 - [`checkpoints/README.md`](checkpoints/README.md) — checkpoint placement and expectations
+- [`ARCHIVE_MANIFEST.md`](ARCHIVE_MANIFEST.md) — public archive contents and Zenodo release checklist
 
 ## Citation
 

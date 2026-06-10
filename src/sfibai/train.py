@@ -52,15 +52,19 @@ def parse_args():
                                  help='Minimum learning rate')
     optimizer_group.add_argument("--scheduler", type=str, default=Config.SCHEDULER,
                                  choices=['cos', 'step'], help='Learning rate scheduler type')
-    optimizer_group.add_argument("--tmax", type=int, default=Config.T_MAX,
-                                 help='Learning rate scheduler period')
+    optimizer_group.add_argument("--tmax", type=int, default=None,
+                                 help='Deprecated alias for --scheduler_step_size')
+    optimizer_group.add_argument("--scheduler_step_size", type=int, default=None,
+                                 help='StepLR step size, or CosineAnnealingLR T_max when --scheduler cos is used')
     
     # Model related parameters
     model_group = parser.add_argument_group('Model Parameters')
     model_group.add_argument("--num_classes", type=int, default=Config.NUM_CLASSES,
                              help='Number of classification classes')
-    model_group.add_argument("--checkpoint_path", type=str, default=Config.CHECKPOINT_PATH,
-                             help='Path to pretrained model')
+    model_group.add_argument("--init_checkpoint", type=str, default=Config.INIT_CHECKPOINT_PATH,
+                             help='Optional checkpoint used to initialize backbone weights before training')
+    model_group.add_argument("--checkpoint_path", type=str, default=None,
+                             help='Deprecated alias for --init_checkpoint')
     model_group.add_argument("--backbone",
                              type=str,
                              default=Config.BACKBONE,
@@ -134,22 +138,28 @@ def setup_ddp(ddp_enabled=False, device_id=0):
     return local_rank, device
 
 def setup_model(device, args):
+    init_checkpoint = args.init_checkpoint or args.checkpoint_path
     # Create model
     model = create_model(
         backbone=args.backbone,
         num_classes=args.num_classes,
-        checkpoint_path=args.checkpoint_path
+        checkpoint_path=init_checkpoint
     )
     model = model.to(device)
     return model
 
 def setup_scheduler(optimizer, args):
+    scheduler_step_size = (
+        args.scheduler_step_size
+        if args.scheduler_step_size is not None
+        else (args.tmax if args.tmax is not None else Config.SCHEDULER_STEP_SIZE)
+    )
     if args.scheduler == 'cos':
         return torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=args.tmax, eta_min=args.lr1)
+            optimizer, T_max=scheduler_step_size, eta_min=args.lr1)
     elif args.scheduler == 'step':
         return torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=args.tmax, gamma=0.6)
+            optimizer, step_size=scheduler_step_size, gamma=0.6)
 
 def setup_dataloaders(train_dataset, val_dataset, batch_size, ddp_enabled, num_workers):
     if ddp_enabled:
@@ -205,14 +215,12 @@ def calculate_loss(y_hat, y, loss_type, device, args):
         # Calculate KL divergence
         kl_loss = kl_crit(F.log_softmax(y_hat, dim=1), soft_labels)
         
-        # Select local range [-2, 2], ensure indices are within [0, 35]
-        valid = (y.unsqueeze(1) + torch.arange(-2, 3).to(device)).clamp(0, 35)
-        
-        # Calculate KL divergence only within valid label range
-        kl_loss_local = kl_loss.gather(1, valid)
-        
-        # Average local KL loss
-        return kl_loss_local.sum() / kl_loss.size(0)
+        class_indices = torch.arange(kl_loss.size(1), device=device).unsqueeze(0)
+        local_mask = (
+            (class_indices >= (y.unsqueeze(1) - 2)) &
+            (class_indices <= (y.unsqueeze(1) + 2))
+        )
+        return (kl_loss * local_mask.float()).sum() / kl_loss.size(0)
 
     # Mean Squared Error (MSE) loss
     def get_mse_loss():
@@ -400,5 +408,4 @@ def main():
     )
 
 if __name__ == "__main__":
-    print("start")
     main()

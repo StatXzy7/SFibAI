@@ -25,4 +25,12 @@ New runs should write to:
 - `figures/` for generated figure outputs
 - `statistics/` for generated dataset summary tables
 
+Main evaluation now writes nine-scenario clinical metrics such as:
+- `binary_metrics_<model>.csv`
+- `clinical_roc_auc_<model>.pdf`
+
+Feature-embedding scripts write:
+- `feature_cache/*.npz` from `scripts/figure_generation/extract_features.py`
+- `figures/tsne/` outputs from `scripts/figure_generation/plot_tsne.py`
+
 These generated directories are intentionally excluded by `.gitignore`.

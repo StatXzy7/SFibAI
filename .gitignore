@@ -2,6 +2,8 @@
 artifacts/runs/
 artifacts/eval_results/
 artifacts/feature_cache/
+artifacts/figures/heatmaps/
+artifacts/figures/tsne/
 
 # Ignore local checkpoints by default, but keep the directory and docs
 checkpoints/*

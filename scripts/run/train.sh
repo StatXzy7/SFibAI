@@ -12,10 +12,9 @@ python "${REPO_ROOT}/src/sfibai/train.py" \
     --lr0 1e-4 \
     --lr1 1e-5 \
     --scheduler step \
-    --tmax 20 \
+    --scheduler_step_size 15 \
     --num_classes 36 \
     --root_dirs "${REPO_ROOT}/data/seg_samples_500" \
-    --checkpoint_path "${REPO_ROOT}/checkpoints/SFibAI.pth" \
     --backbone resnet50 \
     --loss hybrid \
     --save_root "${REPO_ROOT}/artifacts/runs" \

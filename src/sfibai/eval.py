@@ -1,14 +1,11 @@
 import os
 import argparse
 import torch
-import torch.nn as nn
-import numpy as np
 from torch.utils.data import DataLoader
-from sklearn.metrics import confusion_matrix, roc_curve, auc
+from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from sklearn.preprocessing import label_binarize
 from datetime import datetime
 
 # Import custom modules
@@ -16,6 +13,7 @@ from config import Config
 from data.dataset import SchistosomiasisDataset
 from data.transforms import ImageTransforms
 from utils.models import create_model
+from utils.binary_evaluation import evaluate_binary_scenarios
 from utils.scoring import (
     class_score_values,
     clinical_grade_from_scores,
@@ -37,9 +35,22 @@ def parse_args():
     parser.add_argument("--shape", nargs='+', type=int, default=Config.IMAGE_SIZE, help="Input image shape.")
     parser.add_argument("--mode", type=str, default="val", help="Dataset mode ('val' or 'test').")
     parser.add_argument("--crop_mode", type=str, default="none", choices=['none', 'fixed', 'random', 'mixed'], help="Crop mode.")
+    parser.add_argument("--bootstrap", type=int, default=2000,
+                        help="Number of bootstrap resamples for binary AUC confidence intervals.")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Random seed used for bootstrap confidence intervals.")
     return parser.parse_args()
 
-def evaluate_model(model, data_loader, device, save_dir, model_name="model", log_file="results.log"):
+def evaluate_model(
+    model,
+    data_loader,
+    device,
+    save_dir,
+    model_name="model",
+    log_file="results.log",
+    n_bootstrap=2000,
+    seed=42,
+):
     model.eval()
     
     # Initialize results storage
@@ -138,57 +149,51 @@ def evaluate_model(model, data_loader, device, save_dir, model_name="model", log
     for i, grade_idx in enumerate(class_grades.tolist()):
         boundary_probs[:, grade_idx] += all_probs[:, i]
 
-    # Calculate ROC-AUC for three clinically significant classification thresholds
-    fpr, tpr, roc_auc = {}, {}, {}
-    clinical_thresholds = [
-        ('F0 vs F1-F3', lambda x: x == 0, lambda x: x > 0),  # Presence of fibrosis
-        ('F0-F1 vs F2-F3', lambda x: x < 2, lambda x: x >= 2),  # Significant fibrosis
-        ('F0-F2 vs F3', lambda x: x < 3, lambda x: x == 3),  # Severe fibrosis
-    ]
-    
-    plt.figure(figsize=(10, 8))
-    
-    # Calculate ROC curves for each clinical threshold
-    boundary_labels_np = boundary_labels.numpy()
-    for idx, (threshold_name, neg_condition, pos_condition) in enumerate(clinical_thresholds):
-        # Create binary labels
-        binary_labels = np.zeros(len(boundary_labels_np))
-        binary_labels[pos_condition(boundary_labels_np)] = 1
-        
-        # Calculate corresponding prediction probabilities
-        if threshold_name == 'F0 vs F1-F3':
-            pred_probs = 1 - boundary_probs[:, 0].numpy()  # Total probability of F1-F3
-        elif threshold_name == 'F0-F1 vs F2-F3':
-            pred_probs = boundary_probs[:, 2:].sum(dim=1).numpy()  # Total probability of F2-F3
-        else:  # F0-F2 vs F3
-            pred_probs = boundary_probs[:, 3].numpy()  # Probability of F3
-        
-        # Calculate ROC curve and AUC
-        fpr[idx], tpr[idx], _ = roc_curve(binary_labels, pred_probs)
-        roc_auc[idx] = auc(fpr[idx], tpr[idx])
-        
-        # Plot ROC curve
-        plt.plot(fpr[idx], tpr[idx], 
-                label=f'{threshold_name} (AUC = {roc_auc[idx]:.3f})')
+    binary_df, roc_curves = evaluate_binary_scenarios(
+        labels4=boundary_labels.numpy(),
+        probs4=boundary_probs.numpy(),
+        n_bootstrap=n_bootstrap,
+        seed=seed,
+    )
+    binary_csv = os.path.join(save_dir, f"binary_metrics_{model_name}.csv")
+    binary_df.to_csv(binary_csv, index=False)
 
-    plt.plot([0, 1], [0, 1], color='gray', linestyle=':')
-    plt.title('Clinical Threshold ROC Curves', fontsize=24, pad=20)
-    plt.xlabel('False Positive Rate', fontsize=18)
-    plt.ylabel('True Positive Rate', fontsize=18)
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.legend(loc='lower right', fontsize=16)
+    plt.figure(figsize=(12, 10))
+    for scenario_name, (fpr, tpr, auc_value) in roc_curves.items():
+        plt.plot(fpr, tpr, label=f"{scenario_name} (AUC = {auc_value:.3f})", linewidth=2)
+    plt.plot([0, 1], [0, 1], color='gray', linestyle=':', alpha=0.8)
+    plt.title('Clinical ROC Curves for Nine Binary/Composite Scenarios', fontsize=20, pad=24)
+    plt.xlabel('False Positive Rate', fontsize=16)
+    plt.ylabel('True Positive Rate', fontsize=16)
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
+    plt.legend(loc='lower right', fontsize=10, ncol=2, framealpha=0.9)
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, f"clinical_roc_auc_{model_name}.pdf"))
+    plt.savefig(os.path.join(save_dir, f"clinical_roc_auc_{model_name}.pdf"), dpi=600)
     plt.close()
 
-    # Write AUC results to log
     with open(log_file, 'a') as f:
-        f.write("\n=== Clinical Threshold ROC-AUC Scores ===\n")
-        for idx, (threshold_name, _, _) in enumerate(clinical_thresholds):
-            f.write(f"{threshold_name} AUC: {roc_auc[idx]:.3f}\n")
-        f.write(f"Average Clinical AUC: {np.mean(list(roc_auc.values())):.3f}\n")
+        f.write("\n=== Clinical Binary/Composite Scenario Metrics ===\n")
+        f.write(f"Bootstrap resamples: {n_bootstrap}; seed: {seed}\n")
+        f.write(f"CSV: {binary_csv}\n")
+        if not binary_df.empty:
+            display_cols = [
+                "scenario",
+                "auc",
+                "auc_ci_lower",
+                "auc_ci_upper",
+                "sensitivity",
+                "specificity",
+                "accuracy",
+                "precision",
+                "f1",
+                "kappa",
+                "n_samples",
+            ]
+            f.write(binary_df[display_cols].to_string(index=False))
+            f.write("\n")
+            f.write(f"Average Clinical AUC: {binary_df['auc'].mean():.3f}\n")
 
 def plot_confusion_matrix(cm, class_names, save_path, title="Confusion Matrix", show_values=False, fmt='.2f'):
     plt.figure(figsize=(10, 8))
@@ -236,7 +241,16 @@ def main():
             continue
         
         model_name = os.path.splitext(os.path.basename(model_path))[0]
-        evaluate_model(model, data_loader, device, save_dir, model_name=model_name, log_file=os.path.join(save_dir, f"results_{model_name}.log"))
+        evaluate_model(
+            model,
+            data_loader,
+            device,
+            save_dir,
+            model_name=model_name,
+            log_file=os.path.join(save_dir, f"results_{model_name}.log"),
+            n_bootstrap=args.bootstrap,
+            seed=args.seed,
+        )
 
 if __name__ == "__main__":
     main()

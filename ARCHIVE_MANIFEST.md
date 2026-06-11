@@ -11,6 +11,7 @@ This manifest records the public reproducibility contents expected for the Natur
 - `src/sfibai/utils/binary_evaluation.py`: shared nine-scenario binary/composite clinical evaluation with bootstrap AUC confidence intervals.
 - `scripts/run/train.sh`: example training command for the bundled sample dataset.
 - `scripts/run/eval.sh`: example evaluation command requiring a user-supplied trained checkpoint.
+- `requirements.txt`, `environment.yml` and `SOFTWARE_VERSIONS.md`: pinned package versions and Reporting Summary software version record based on the local `cv` environment.
 
 ## Figure reproduction
 
@@ -30,7 +31,7 @@ The full study dataset, expert lesion annotations and trained manuscript checkpo
 
 ## Zenodo release checklist
 
-1. Confirm `VERSION` and `CITATION.cff` contain the intended release version.
+1. Confirm `VERSION`, `CITATION.cff` and `SOFTWARE_VERSIONS.md` contain the intended release version and software versions.
 2. Run smoke checks for `train.py --help`, `eval.py --help`, `feature_heatmap.py --help`, `extract_features.py --help` and `plot_tsne.py --help`.
 3. Create an immutable git tag, for example `v2.0.1-ncomms`.
 4. Push the tag to GitHub.

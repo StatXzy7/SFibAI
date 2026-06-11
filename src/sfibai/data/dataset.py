@@ -4,7 +4,17 @@ import numpy as np
 from torch.utils.data import Dataset
 
 class SchistosomiasisDataset(Dataset):
-    def __init__(self, root_dirs, mode='train', transform=None, debug=False, crop_mode='mixed'):
+    def __init__(
+        self,
+        root_dirs,
+        mode='train',
+        transform=None,
+        debug=False,
+        crop_mode='mixed',
+        balance_crops=True,
+        min_crops_per_image=3,
+        max_crops_per_image=10,
+    ):
         """
         Args:
             root_dirs: Dataset root directory (or list of directories)
@@ -16,6 +26,9 @@ class SchistosomiasisDataset(Dataset):
                 - 'fixed': Only use fixed cropping
                 - 'random': Only use random cropping
                 - 'mixed': Mix fixed and random cropping (original random method)
+            balance_crops: If True, minority labels receive more crop repeats.
+            min_crops_per_image: Minimum crop repeats for annotated training images.
+            max_crops_per_image: Maximum crop repeats for annotated training images.
         """
         self.images = []
         self.labels = []
@@ -24,8 +37,16 @@ class SchistosomiasisDataset(Dataset):
         self.mode = mode
         self.debug = debug
         self.crop_mode = crop_mode.lower()
+        self.balance_crops = bool(balance_crops)
+        self.min_crops_per_image = int(min_crops_per_image)
+        self.max_crops_per_image = int(max_crops_per_image)
         self.has_seg_labels = False
         self.sample_indices = []
+
+        if self.min_crops_per_image < 1:
+            raise ValueError("min_crops_per_image must be >= 1")
+        if self.max_crops_per_image < self.min_crops_per_image:
+            raise ValueError("max_crops_per_image must be >= min_crops_per_image")
 
         if isinstance(root_dirs, str):
             root_dirs = [root_dirs]
@@ -96,12 +117,25 @@ class SchistosomiasisDataset(Dataset):
                         self.seglabels.append(None)
                         total_valid += 1
 
+        label_dist = {}
+        for label in self.labels:
+            label_dist[label] = label_dist.get(label, 0) + 1
+
+        crop_repeat_by_label = self._build_crop_repeat_by_label(label_dist)
+        augmented_label_dist = {}
+
         for image_idx, seglabel in enumerate(self.seglabels):
             if self.mode == 'train' and self.crop_mode != 'none' and seglabel is not None:
-                self.sample_indices.extend(
-                    [image_idx] * int(np.random.randint(3, 11)))
+                repeat_count = crop_repeat_by_label.get(
+                    self.labels[image_idx],
+                    self.min_crops_per_image,
+                )
+                self.sample_indices.extend([image_idx] * repeat_count)
             else:
+                repeat_count = 1
                 self.sample_indices.append(image_idx)
+            label = self.labels[image_idx]
+            augmented_label_dist[label] = augmented_label_dist.get(label, 0) + repeat_count
 
         print(f"\n{mode} dataset loading completed, statistics:")
         print(f"  - Valid files: {total_valid}")
@@ -109,20 +143,65 @@ class SchistosomiasisDataset(Dataset):
         if not self.has_seg_labels:
             print(f"  - Annotation files: not present (crop_mode forced to 'none')")
 
-        label_dist = {}
-        for label in self.labels:
-            label_dist[label] = label_dist.get(label, 0) + 1
-
         distribution_str = " ".join(
             f"{label/10:.1f}:{count}"
             for label, count in sorted(label_dist.items())
         )
         print(f"  - Label distribution: {distribution_str}")
 
+        if self.mode == 'train' and self.crop_mode != 'none' and self.has_seg_labels:
+            repeat_str = " ".join(
+                f"{label/10:.1f}:{count}"
+                for label, count in sorted(crop_repeat_by_label.items())
+            )
+            augmented_str = " ".join(
+                f"{label/10:.1f}:{count}"
+                for label, count in sorted(augmented_label_dist.items())
+            )
+            strategy = "class-balanced" if self.balance_crops else "uniform"
+            print(f"  - Crop repeat strategy: {strategy}")
+            print(f"  - Crop repeats per image: {repeat_str}")
+            print(f"  - Augmented sample distribution: {augmented_str}")
+
         print(f"\nTotal {len(self.sample_indices)} samples from {len(self.images)} images\n")
 
     def __len__(self):
         return len(self.sample_indices)
+
+    def _build_crop_repeat_by_label(self, label_dist):
+        if (
+            self.mode != 'train' or
+            self.crop_mode == 'none' or
+            not label_dist
+        ):
+            return {label: 1 for label in label_dist}
+
+        if not self.balance_crops:
+            return {
+                label: self.min_crops_per_image
+                for label in label_dist
+            }
+
+        min_count = min(label_dist.values())
+        max_count = max(label_dist.values())
+        if min_count == max_count:
+            return {
+                label: self.min_crops_per_image
+                for label in label_dist
+            }
+
+        repeat_by_label = {}
+        crop_span = self.max_crops_per_image - self.min_crops_per_image
+        count_span = max_count - min_count
+        for label, count in label_dist.items():
+            minority_score = (max_count - count) / count_span
+            repeat_count = int(round(self.min_crops_per_image + crop_span * minority_score))
+            repeat_by_label[label] = int(np.clip(
+                repeat_count,
+                self.min_crops_per_image,
+                self.max_crops_per_image,
+            ))
+        return repeat_by_label
 
     def fixed_crop(self, img, seglabel):
         h, w, _ = img.shape

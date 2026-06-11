@@ -119,6 +119,24 @@ def parse_args():
         choices=['none', 'fixed', 'random', 'mixed'],
         help="Training crop mode: none, fixed, random, or mixed fixed/random crops (default: random)"
     )
+    parser.add_argument(
+        "--balance_crops",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Use class-frequency-aware crop repeats so minority labels receive more ROI crops."
+    )
+    parser.add_argument(
+        "--min_crops_per_image",
+        type=int,
+        default=3,
+        help="Minimum crop repeats for annotated training images."
+    )
+    parser.add_argument(
+        "--max_crops_per_image",
+        type=int,
+        default=10,
+        help="Maximum crop repeats for annotated training images; minority labels receive values closer to this maximum."
+    )
     
     return parser.parse_args()
 
@@ -370,7 +388,10 @@ def main():
         args.root_dirs,
         mode='train', 
         transform=train_transforms,
-        crop_mode=args.crop_mode
+        crop_mode=args.crop_mode,
+        balance_crops=args.balance_crops,
+        min_crops_per_image=args.min_crops_per_image,
+        max_crops_per_image=args.max_crops_per_image,
     )
     val_dataset = SchistosomiasisDataset(
         args.root_dirs,

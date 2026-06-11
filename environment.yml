@@ -3,22 +3,28 @@ channels:
   - pytorch
   - conda-forge
 dependencies:
-  - python=3.10
+  - python=3.10.20
   - pip
-  - numpy
-  - pandas
-  - scipy
-  - scikit-learn
-  - matplotlib
-  - seaborn
-  - opencv
-  - pillow
-  - tqdm
-  - pyyaml
-  - pytorch
-  - torchvision
-  - torchaudio
   - pip:
-      - imbalanced-learn
-      - pyradiomics
-      - SimpleITK
+      - --extra-index-url https://download.pytorch.org/whl/cu128
+      - numpy==2.2.6
+      - pandas==2.3.3
+      - scipy==1.15.2
+      - scikit-learn==1.7.2
+      - matplotlib==3.10.9
+      - seaborn==0.13.2
+      - opencv-python-headless==4.13.0.92
+      - pillow==12.2.0
+      - tqdm==4.67.3
+      - PyYAML==6.0.3
+      - torch==2.11.0+cu128
+      - torchvision==0.26.0+cu128
+      - torchaudio==2.11.0+cu128
+      - imbalanced-learn==0.14.1
+      - pyradiomics==3.0.1
+      - SimpleITK==2.5.5
+      - PyWavelets==1.8.0
+      - statsmodels==0.14.6
+      - openpyxl==3.1.5
+      - xlrd==2.0.2
+      - tensorboard==2.20.0

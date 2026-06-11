@@ -7,7 +7,7 @@ SFibAI is the official code repository for the manuscript **"Deep Learning for P
 - **Fine-grained grading** — 36-class ordinal output (0.0–3.5, step 0.1), compatible with standard clinical grades (F0–F3)
 - **Hybrid loss** — Local KL Divergence + clinical-score MSE + clinical boundary penalty, with configurable weights
 - **backbone** — ResNet-50 (default)
-- **Training augmentation** — gamma correction, horizontal flip, HSV saturation/value jitter, RGB contrast/brightness, Gaussian noise, and ROI-based 3--10 random crops when annotations are available
+- **Training augmentation** — gamma correction, horizontal flip, HSV saturation/value jitter, RGB contrast/brightness, Gaussian noise, and class-frequency-aware ROI random crops when annotations are available
 - **Mixed-precision & DDP** — built-in AMP and DistributedDataParallel support
 
 ## Repository layout
@@ -17,6 +17,7 @@ SFibAI/
 ├── README.md
 ├── VERSION
 ├── ARCHIVE_MANIFEST.md
+├── SOFTWARE_VERSIONS.md
 ├── CITATION.cff
 ├── environment.yml
 ├── requirements.txt
@@ -55,6 +56,8 @@ SFibAI/
 ```
 
 ## Environment setup
+
+The pinned package versions used for the reference `cv` environment are recorded in [`SOFTWARE_VERSIONS.md`](SOFTWARE_VERSIONS.md). The package lock files were generated from that local environment.
 
 Create a clean environment with conda:
 
@@ -119,7 +122,7 @@ When annotation directories are absent, the dataset loader automatically disable
 - `data/seg_samples_500/` — 500 representative pre-segmented ultrasound images organized by fibrosis grade (0.0–3.4), sufficient for a demonstration run of the training and evaluation pipeline.
 - `artifacts/sample_results/` — representative outputs preserved from the analysis workflow.
 
-The bundled sample data does not include ROI annotation files. `train.py` defaults to ROI-based random cropping for full annotated datasets, but cropping is automatically disabled when annotation directories are absent. The bundled run scripts use `--crop_mode none` for the sample data.
+The bundled sample data does not include ROI annotation files. `train.py` defaults to ROI-based random cropping for full annotated datasets, but cropping is automatically disabled when annotation directories are absent. For annotated training data, the dataset loader assigns 3--10 crop repeats per image according to class frequency, so minority labels receive more stochastic ROI crops than majority labels. The bundled run scripts use `--crop_mode none` for the sample data.
 
 The full study dataset and all training artifacts are **not** redistributed in this public repository.
 
@@ -164,7 +167,10 @@ Key arguments:
 | `--alpha` | 1.0 | Weight for Local KL Divergence loss |
 | `--beta` | 0.02 | Weight for Expectation MSE loss |
 | `--gamma` | 0.02 | Weight for Boundary Penalty loss |
-| `--crop_mode` | `random` | Training crop strategy: `none`, `fixed`, `random`, `mixed`; annotated training images are expanded into 3--10 crops |
+| `--crop_mode` | `random` | Training crop strategy: `none`, `fixed`, `random`, `mixed` |
+| `--balance_crops` | enabled | Use class-frequency-aware crop repeats for annotated training images |
+| `--min_crops_per_image` | `3` | Minimum crop repeats assigned to annotated training images |
+| `--max_crops_per_image` | `10` | Maximum crop repeats; minority labels receive values closer to this maximum |
 | `--scheduler` | `step` | LR scheduler: `step` or `cos` |
 | `--scheduler_step_size` | `15` | StepLR step size; also used as `T_max` for cosine scheduling |
 | `--init_checkpoint` | — | Optional checkpoint used to initialize backbone weights before training |
@@ -234,6 +240,7 @@ For baseline documentation, entry points and usage instructions, see **[`src/bas
 - [`artifacts/README.md`](artifacts/README.md) — sample outputs and generated artifacts
 - [`checkpoints/README.md`](checkpoints/README.md) — checkpoint placement and expectations
 - [`ARCHIVE_MANIFEST.md`](ARCHIVE_MANIFEST.md) — public archive contents and Zenodo release checklist
+- [`SOFTWARE_VERSIONS.md`](SOFTWARE_VERSIONS.md) — software/tools/packages with version numbers for reporting
 
 ## Citation
 

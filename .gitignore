@@ -44,3 +44,8 @@ Thumbs.db
 /results/
 /scripts/figure_generate/
 /scripts/train_eval/
+
+# Local release/reporting notes
+/ARCHIVE_MANIFEST.md
+/SOFTWARE_VERSIONS.md
+/VERSION

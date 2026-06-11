@@ -15,9 +15,6 @@ SFibAI is the official code repository for the manuscript **"Deep Learning for P
 ```text
 SFibAI/
 ├── README.md
-├── VERSION
-├── ARCHIVE_MANIFEST.md
-├── SOFTWARE_VERSIONS.md
 ├── CITATION.cff
 ├── environment.yml
 ├── requirements.txt
@@ -57,7 +54,9 @@ SFibAI/
 
 ## Environment setup
 
-The pinned package versions used for the reference `cv` environment are recorded in [`SOFTWARE_VERSIONS.md`](SOFTWARE_VERSIONS.md). The package lock files were generated from that local environment.
+The package lock files were generated from the local `cv` environment used for the reproducibility archive check.
+
+Key reference versions are pinned in `requirements.txt` and `environment.yml`, including Python 3.10.20, PyTorch 2.11.0+cu128, torchvision 0.26.0+cu128, NumPy 2.2.6, pandas 2.3.3, SciPy 1.15.2 and scikit-learn 1.7.2.
 
 Create a clean environment with conda:
 
@@ -239,8 +238,6 @@ For baseline documentation, entry points and usage instructions, see **[`src/bas
 - [`data/README.md`](data/README.md) — data availability and expected layout
 - [`artifacts/README.md`](artifacts/README.md) — sample outputs and generated artifacts
 - [`checkpoints/README.md`](checkpoints/README.md) — checkpoint placement and expectations
-- [`ARCHIVE_MANIFEST.md`](ARCHIVE_MANIFEST.md) — public archive contents and Zenodo release checklist
-- [`SOFTWARE_VERSIONS.md`](SOFTWARE_VERSIONS.md) — software/tools/packages with version numbers for reporting
 
 ## Citation
 

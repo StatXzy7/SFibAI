@@ -1,10 +1,6 @@
 cff-version: 1.2.0
-name: SFibAI
-title: "SFibAI: Deep Learning for Precision Grading of Schistosoma japonicum-induced Liver Fibrosis in Ultrasound Images"
-version: 2.0.1-ncomms
-license: Apache-2.0
-repository-code: "https://github.com/StatXzy7/SFibAI"
-message: "If you use this repository, please cite the associated manuscript and this software record."
+title: "SFibAI: Official code for deep learning-based precision grading of Schistosoma japonicum-induced liver fibrosis in ultrasound images"
+message: "If you use this repository or the SFibAI method, please cite both the article below and this software record."
 type: software
 authors:
   - family-names: Xu
@@ -13,18 +9,59 @@ authors:
     given-names: Jianfeng
   - family-names: Wu
     given-names: Tingting
+    orcid: "https://orcid.org/0000-0002-9880-8619"
   - family-names: Hua
     given-names: Haiyong
   - family-names: Yang
     given-names: Kun
+    orcid: "https://orcid.org/0000-0001-8198-132X"
   - family-names: Zeng
     given-names: Tieyong
+    orcid: "https://orcid.org/0000-0002-0688-202X"
+version: 2.0.1-ncomms
+license: Apache-2.0
+repository-code: "https://github.com/StatXzy7/SFibAI"
 abstract: >-
-  Official code repository for SFibAI: Deep Learning for Precision Grading of Schistosoma Japonicum-induced Liver Fibrosis in Ultrasound Images
+  Official code repository for SFibAI, a deep learning system for automated,
+  fine-grained grading of Schistosoma japonicum-induced liver fibrosis in
+  ultrasound images. Trained and evaluated on a multicentre dataset of 167,702
+  ultrasound images labelled on a 36-level scale (0.0-3.5) that maps onto the
+  four clinical grades (F0-F3), the system achieves a mean absolute error of
+  0.116 with 93.9% of predictions within 0.5 grades on an independent test set
+  of 16,811 images, and a deployable version processes each image in under
+  400 ms on Windows and Android devices.
 keywords:
   - liver fibrosis
   - schistosomiasis
   - ultrasound
   - deep learning
   - radiomics
+  - computer-aided diagnosis
+  - schistosomiasis japonica
+  - fibrosis grading
   - reproducibility
+preferred-citation:
+  type: article
+  title: "Deep learning for precision grading of Schistosoma japonicum-induced liver fibrosis in ultrasound images"
+  authors:
+    - family-names: Xu
+      given-names: Ziyang
+    - family-names: Zhang
+      given-names: Jianfeng
+    - family-names: Wu
+      given-names: Tingting
+      orcid: "https://orcid.org/0000-0002-9880-8619"
+    - family-names: Hua
+      given-names: Haiyong
+    - family-names: Yang
+      given-names: Kun
+      orcid: "https://orcid.org/0000-0001-8198-132X"
+    - family-names: Zeng
+      given-names: Tieyong
+      orcid: "https://orcid.org/0000-0002-0688-202X"
+  journal: "Nature Communications"
+  publisher: "Springer Nature"
+  issn: "2041-1723"
+  year: 2026
+  doi: "10.1038/s41467-026-76287-9"
+  url: "https://www.nature.com/articles/s41467-026-76287-9"

@@ -1,6 +1,19 @@
 # SFibAI
 
-SFibAI is the official code repository for the manuscript **"Deep Learning for Precision Grading of *Schistosoma japonicum*-induced Liver Fibrosis in Ultrasound Images"**.
+[![DOI](https://img.shields.io/badge/DOI-10.1038%2Fs41467--026--76287--9-blue)](https://doi.org/10.1038/s41467-026-76287-9)
+[![Journal](https://img.shields.io/badge/Journal-Nature%20Communications-green)](https://www.nature.com/articles/s41467-026-76287-9)
+[![License](https://img.shields.io/badge/License-Apache%202.0-orange)](LICENSE)
+
+SFibAI is the official code repository for the manuscript **"Deep Learning for Precision Grading of *Schistosoma japonicum*-induced Liver Fibrosis in Ultrasound Images"**, published in *Nature Communications* (2026): [https://www.nature.com/articles/s41467-026-76287-9](https://www.nature.com/articles/s41467-026-76287-9).
+
+## About the paper
+
+Key results from the manuscript, each independently reproducible with the scripts in this repository:
+
+- **Dataset** — multicentre cohort of **167,702** ultrasound images labelled on a 36-level ordinal scale (0.0–3.5) that maps onto the four clinical grades (F0–F3); **16,811** images reserved as an independent test set
+- **Fine-grained accuracy** — on the independent test set, **93.9%** of predictions were within 0.5 grades of expert labels, with a **mean absolute error of 0.116**
+- **Deployability** — a deployable version ran on Windows and Android devices, processing each image in **< 400 ms**
+- **Scope** — supports scalable, more consistent ultrasound screening and follow-up for schistosomiasis-associated liver fibrosis in endemic regions
 
 ## Features
 
@@ -241,4 +254,24 @@ For baseline documentation, entry points and usage instructions, see **[`src/bas
 
 ## Citation
 
-If you use this repository, please cite the associated manuscript and software metadata in [`CITATION.cff`](CITATION.cff).
+If you use this repository or the SFibAI method in your work, please cite the article:
+
+```bibtex
+@article{xu2026sfibai,
+  title   = {Deep learning for precision grading of {Schistosoma japonicum}-induced liver fibrosis in ultrasound images},
+  author  = {Xu, Ziyang and Zhang, Jianfeng and Wu, Tingting and Hua, Haiyong and Yang, Kun and Zeng, Tieyong},
+  journal = {Nature Communications},
+  year    = {2026},
+  doi     = {10.1038/s41467-026-76287-9},
+  url     = {https://www.nature.com/articles/s41467-026-76287-9},
+  issn    = {2041-1723}
+}
+```
+
+**Links**
+
+- Article: [https://doi.org/10.1038/s41467-026-76287-9](https://doi.org/10.1038/s41467-026-76287-9)
+- Code repository: [https://github.com/StatXzy7/SFibAI](https://github.com/StatXzy7/SFibAI)
+- Machine-readable citation metadata: [`CITATION.cff`](CITATION.cff) (GitHub renders it via the "Cite this repository" button)
+
+The metadata (title, authors, DOI, links) is kept consistent across this README, `CITATION.cff`, Crossref and Semantic Scholar so that citation tools and AI assistants can retrieve it unambiguously.
